@@ -13,11 +13,13 @@ from dotenv import load_dotenv
 # ==========================================
 # ЗАГРУЗКА ПЕРЕМЕННЫХ ОКРУЖЕНИЯ
 # ==========================================
-load_dotenv()
+load_dotenv()  # Загружаем переменные из .env файла
 
+# Получаем токен и ID админа из переменных окружения
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-ADMIN_ID = int(os.getenv('ADMIN_ID'))
+ADMIN_ID = int(os.getenv('ADMIN_ID'))  # Преобразуем в int
 
+# Проверяем, что переменные загрузились
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN не найден в переменных окружения!")
 if not ADMIN_ID:
@@ -26,17 +28,18 @@ if not ADMIN_ID:
 # ==========================================
 # СОЗДАНИЕ БОТА
 # ==========================================
-bot = Bot(token=BOT_TOKEN, timeout=120)
+bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
 # Хранилища
 user_work_message = {}
 user_data = {}
+video_sent = {}
 user_carts = {}
 
 # ==========================================
-# ЦЕНЫ НА ВИДЕО
+# ЦЕНЫ НА ВИДЕО (1 видео = 1390₽, комбо цены)
 # ==========================================
 SINGLE_VIDEO_PRICE = 1390
 
@@ -161,6 +164,7 @@ def get_main_menu_keyboard(user_id=None):
 
 
 def get_video_choice_keyboard():
+    """Клавиатура выбора видео с кнопкой Хочу все"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Perhaps", callback_data="view_video_1"),
          InlineKeyboardButton(text="Масло", callback_data="view_video_2")],
@@ -178,6 +182,7 @@ def get_video_choice_keyboard():
 
 
 def get_empty_cart_keyboard():
+    """Клавиатура для пустой корзины"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Выбрать видео", callback_data="choose_video")],
         [InlineKeyboardButton(text="Главное меню", callback_data="back_to_main")]
@@ -225,80 +230,37 @@ def get_cart_keyboard(user_id):
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-async def send_new_message(user_id, chat_id, text, reply_markup=None):
-    try:
-        sent = await bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            parse_mode="HTML",
-            reply_markup=reply_markup
-        )
-        user_work_message[user_id] = sent
-        return sent
-    except Exception as e:
-        print(f"Ошибка отправки сообщения: {e}")
-        return None
-
-
-@dp.message(Command("start"))
-async def start_command(message: types.Message):
-    user_id = message.from_user.id
-    print(f"Команда /start от пользователя {user_id}")
-
-    args = message.text.split()
-    referer_id = None
-    if len(args) > 1:
+async def update_work_message(user_id, chat_id, text, reply_markup=None):
+    if user_id in user_work_message:
         try:
-            referer_id = int(args[1])
-            if referer_id != user_id:
-                print(f"Пользователь {user_id} пришел по реферальной ссылке от {referer_id}")
-                try:
-                    await bot.send_message(
-                        referer_id,
-                        f"🎉 Поздравляем! По вашей ссылке пришел новый пользователь @{message.from_user.username or message.from_user.full_name}!"
-                    )
-                except:
-                    pass
-        except ValueError:
-            pass
-
-    video_note_path = "videos/preview.mp4"
-
-    try:
-        if os.path.exists(video_note_path):
-            video_note_file = FSInputFile(video_note_path)
-            await message.answer_video_note(
-                video_note=video_note_file,
-                duration=15,
-                length=320
+            await user_work_message[user_id].edit_text(
+                text,
+                parse_mode="HTML",
+                reply_markup=reply_markup
             )
-        else:
-            print(f"Файл не найден: {video_note_path}")
-    except Exception as e:
-        print(f"Ошибка отправки видео: {e}")
+            return user_work_message[user_id]
+        except Exception as e:
+            print(f"Ошибка редактирования: {e}")
 
-    await asyncio.sleep(0.5)
-
-    pognali_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="ПОГНАЛИ", callback_data="go_choose_video")]
-    ])
-
-    try:
-        sent = await message.answer(
-            "If you need the English version of the bot, follow the link @reji_pantera_bot\n\n"
-            "Если хотите остаться в русской версии бота, нажмите «Погнали», чтобы перейти к выбору хореографии",
-            parse_mode="HTML",
-            reply_markup=pognali_keyboard
-        )
-        user_work_message[user_id] = sent
-    except Exception as e:
-        print(f"Ошибка отправки сообщения: {e}")
+    sent = await bot.send_message(
+        chat_id=chat_id,
+        text=text,
+        parse_mode="HTML",
+        reply_markup=reply_markup
+    )
+    user_work_message[user_id] = sent
+    return sent
 
 
-@dp.callback_query(lambda c: c.data == "go_choose_video")
-async def handle_go(callback: CallbackQuery):
-    await callback.answer()
-    await send_main_menu(callback.message.chat.id, callback.from_user.id)
+async def send_new_message(user_id, chat_id, text, reply_markup=None):
+    sent = await bot.send_message(
+        chat_id=chat_id,
+        text=text,
+        parse_mode="HTML",
+        reply_markup=reply_markup
+    )
+    user_work_message[user_id] = sent
+    return sent
 
 
 async def send_main_menu(chat_id, user_id):
@@ -339,11 +301,77 @@ async def send_main_menu(chat_id, user_id):
     await send_new_message(user_id, chat_id, main_text, get_main_menu_keyboard(user_id))
 
 
+@dp.message(Command("start"))
+async def start_command(message: types.Message):
+    user_id = message.from_user.id
+
+    args = message.text.split()
+    referer_id = None
+    if len(args) > 1:
+        try:
+            referer_id = int(args[1])
+            if referer_id != user_id:
+                print(f"Пользователь {user_id} пришел по реферальной ссылке от {referer_id}")
+                await bot.send_message(
+                    referer_id,
+                    f"🎉 Поздравляем! По вашей ссылке пришел новый пользователь @{message.from_user.username or message.from_user.full_name}!"
+                )
+        except ValueError:
+            pass
+
+    if user_id in video_sent and video_sent[user_id]:
+        return
+
+    video_sent[user_id] = True
+    video_note_path = "videos/preview.mp4"
+
+    try:
+        if os.path.exists(video_note_path):
+            video_note_file = FSInputFile(video_note_path)
+            await message.answer_video_note(
+                video_note=video_note_file,
+                duration=15,
+                length=320
+            )
+
+        await asyncio.sleep(0.5)
+
+        pognali_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="ПОГНАЛИ", callback_data="go_choose_video")]
+        ])
+
+        sent = await message.answer(
+            "If you need the English version of the bot, follow the link @reji_pantera_bot\n\n"
+            "Если хотите остаться в русской версии бота, нажмите «Погнали», чтобы перейти к выбору хореографии",
+            parse_mode="HTML",
+            reply_markup=pognali_keyboard
+        )
+
+        user_work_message[user_id] = sent
+
+    except Exception as e:
+        await message.answer(f"Ошибка: {str(e)}")
+
+
+@dp.callback_query(lambda c: c.data == "go_choose_video")
+async def handle_go(callback: CallbackQuery):
+    await callback.answer()
+
+    if callback.from_user.id in user_work_message:
+        try:
+            await user_work_message[callback.from_user.id].delete()
+            del user_work_message[callback.from_user.id]
+        except:
+            pass
+
+    await send_main_menu(callback.message.chat.id, callback.from_user.id)
+
+
 @dp.callback_query(lambda c: c.data == "choose_video")
 async def handle_choose_video(callback: CallbackQuery):
     await callback.answer()
     choose_text = "👇 <b>Выберите хореографию:</b>\n\n<i>Нажмите на видео, чтобы посмотреть отрывок</i>"
-    await send_new_message(
+    await update_work_message(
         callback.from_user.id,
         callback.message.chat.id,
         choose_text,
@@ -361,7 +389,14 @@ async def back_to_main(callback: CallbackQuery):
 async def back_to_video_choice(callback: CallbackQuery):
     await callback.answer()
     choose_text = "👇 <b>Выберите хореографию:</b>\n\n<i>Нажмите на видео, чтобы посмотреть отрывок</i>"
-    await send_new_message(
+
+    if callback.from_user.id in user_work_message:
+        try:
+            await user_work_message[callback.from_user.id].delete()
+        except:
+            pass
+
+    await update_work_message(
         callback.from_user.id,
         callback.message.chat.id,
         choose_text,
@@ -371,13 +406,22 @@ async def back_to_video_choice(callback: CallbackQuery):
 
 @dp.callback_query(lambda c: c.data == "add_all_to_cart")
 async def add_all_to_cart(callback: CallbackQuery):
+    """Добавляет все 9 видео в корзину и сразу показывает корзину"""
     await callback.answer()
     user_id = callback.from_user.id
 
+    # Создаем список всех видео
     all_videos = [f"video_{i}" for i in range(1, 10)]
+
+    if user_id not in user_carts:
+        user_carts[user_id] = []
+
+    # Добавляем все видео
     user_carts[user_id] = all_videos.copy()
 
     await callback.answer("✅ Все 9 видео добавлены в корзину!", show_alert=True)
+
+    # Показываем корзину
     await show_cart(callback)
 
 
@@ -412,35 +456,27 @@ async def view_video(callback: CallbackQuery):
 
 Добавьте видео в корзину, чтобы продолжить выбор или оформить заказ."""
 
-    if os.path.exists(preview_path):
+    if callback.from_user.id in user_work_message:
         try:
-            video_file = FSInputFile(preview_path)
-            sent = await bot.send_video(
-                chat_id=callback.message.chat.id,
-                video=video_file,
-                caption=caption,
-                parse_mode="HTML",
-                reply_markup=get_video_view_keyboard(video_key, callback.from_user.id),
-                width=720,
-                height=1280,
-                supports_streaming=True,
-                request_timeout=120
-            )
-            user_work_message[callback.from_user.id] = sent
-        except Exception as e:
-            print(f"Ошибка отправки видео {video_key}: {e}")
-            sent = await bot.send_message(
-                chat_id=callback.message.chat.id,
-                text=f"🎥 {caption}\n\n⚠️ Видео временно недоступно, попробуйте позже",
-                parse_mode="HTML",
-                reply_markup=get_video_view_keyboard(video_key, callback.from_user.id)
-            )
-            user_work_message[callback.from_user.id] = sent
+            await user_work_message[callback.from_user.id].delete()
+        except:
+            pass
+
+    if os.path.exists(preview_path):
+        video_file = FSInputFile(preview_path)
+        sent = await callback.message.answer_video(
+            video=video_file,
+            caption=caption,
+            parse_mode="HTML",
+            reply_markup=get_video_view_keyboard(video_key, callback.from_user.id),
+            width=1080,
+            height=1920,
+            supports_streaming=True
+        )
+        user_work_message[callback.from_user.id] = sent
     else:
-        print(f"Файл не найден: {preview_path}")
-        sent = await bot.send_message(
-            chat_id=callback.message.chat.id,
-            text=caption,
+        sent = await callback.message.answer(
+            caption,
             parse_mode="HTML",
             reply_markup=get_video_view_keyboard(video_key, callback.from_user.id)
         )
@@ -465,7 +501,14 @@ async def add_to_cart(callback: CallbackQuery):
         await callback.answer(f"✅ {PREVIEWS_INFO[video_key]['name']} добавлен в корзину!", show_alert=True)
 
         choose_text = "👇 <b>Выберите хореографию:</b>\n\n<i>Нажмите на видео, чтобы посмотреть отрывок</i>"
-        await send_new_message(
+
+        if user_id in user_work_message:
+            try:
+                await user_work_message[user_id].delete()
+            except:
+                pass
+
+        await update_work_message(
             user_id,
             callback.message.chat.id,
             choose_text,
@@ -483,7 +526,14 @@ async def remove_from_cart(callback: CallbackQuery):
         await callback.answer(f"❌ {PREVIEWS_INFO[video_key]['name']} удален из корзины!", show_alert=True)
 
         choose_text = "👇 <b>Выберите хореографию:</b>\n\n<i>Нажмите на видео, чтобы посмотреть отрывок</i>"
-        await send_new_message(
+
+        if user_id in user_work_message:
+            try:
+                await user_work_message[user_id].delete()
+            except:
+                pass
+
+        await update_work_message(
             user_id,
             callback.message.chat.id,
             choose_text,
@@ -507,9 +557,18 @@ async def show_cart(callback: CallbackQuery):
     await callback.answer()
     user_id = callback.from_user.id
 
+    # Если корзина пуста - показываем сообщение с кнопками
     if user_id not in user_carts or not user_carts[user_id]:
         empty_cart_text = "🛒 <b>Ваша корзина пока пуста!</b>\n\nДобавьте видео через раздел «Выбрать видео»."
-        await send_new_message(user_id, callback.message.chat.id, empty_cart_text, get_empty_cart_keyboard())
+
+        if user_id in user_work_message:
+            try:
+                await user_work_message[user_id].delete()
+            except:
+                pass
+
+        sent = await callback.message.answer(empty_cart_text, parse_mode="HTML", reply_markup=get_empty_cart_keyboard())
+        user_work_message[user_id] = sent
         return
 
     total_price, final_price, discount = calculate_total_price(user_carts[user_id])
@@ -523,7 +582,14 @@ async def show_cart(callback: CallbackQuery):
     cart_text += f"Выбрано видео: {video_count} шт.\n"
     cart_text += f"<b>К оплате: {final_price}₽</b>"
 
-    await send_new_message(user_id, callback.message.chat.id, cart_text, get_cart_keyboard(user_id))
+    if user_id in user_work_message:
+        try:
+            await user_work_message[user_id].delete()
+        except:
+            pass
+
+    sent = await callback.message.answer(cart_text, parse_mode="HTML", reply_markup=get_cart_keyboard(user_id))
+    user_work_message[user_id] = sent
 
 
 @dp.callback_query(lambda c: c.data == "clear_cart")
@@ -531,11 +597,21 @@ async def clear_cart(callback: CallbackQuery):
     await callback.answer()
     user_id = callback.from_user.id
 
+    # Очищаем корзину
     if user_id in user_carts:
         user_carts[user_id] = []
 
+    # Показываем сообщение о пустой корзине
     empty_cart_text = "🛒 <b>Корзина очищена!</b>\n\nДобавьте видео через раздел «Выбрать видео»."
-    await send_new_message(user_id, callback.message.chat.id, empty_cart_text, get_empty_cart_keyboard())
+
+    if user_id in user_work_message:
+        try:
+            await user_work_message[user_id].delete()
+        except:
+            pass
+
+    sent = await callback.message.answer(empty_cart_text, parse_mode="HTML", reply_markup=get_empty_cart_keyboard())
+    user_work_message[user_id] = sent
 
 
 @dp.callback_query(lambda c: c.data == "checkout")
@@ -545,7 +621,15 @@ async def checkout(callback: CallbackQuery, state: FSMContext):
 
     if user_id not in user_carts or not user_carts[user_id]:
         empty_cart_text = "🛒 <b>Ваша корзина пуста!</b>\n\nДобавьте видео через раздел «Выбрать видео»."
-        await send_new_message(user_id, callback.message.chat.id, empty_cart_text, get_empty_cart_keyboard())
+
+        if user_id in user_work_message:
+            try:
+                await user_work_message[user_id].delete()
+            except:
+                pass
+
+        sent = await callback.message.answer(empty_cart_text, parse_mode="HTML", reply_markup=get_empty_cart_keyboard())
+        user_work_message[user_id] = sent
         return
 
     total_price, final_price, discount = calculate_total_price(user_carts[user_id])
@@ -601,7 +685,14 @@ async def checkout(callback: CallbackQuery, state: FSMContext):
         [InlineKeyboardButton(text="❓ Помощь", url="https://t.me/reji_pantera")]
     ])
 
-    await send_new_message(user_id, callback.message.chat.id, payment_details, payment_keyboard)
+    if user_id in user_work_message:
+        try:
+            await user_work_message[user_id].delete()
+        except:
+            pass
+
+    sent = await callback.message.answer(payment_details, parse_mode="HTML", reply_markup=payment_keyboard)
+    user_work_message[user_id] = sent
     await state.set_state(PaymentStates.waiting_for_payment)
 
 
