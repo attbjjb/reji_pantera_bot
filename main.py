@@ -13,13 +13,11 @@ from dotenv import load_dotenv
 # ==========================================
 # ЗАГРУЗКА ПЕРЕМЕННЫХ ОКРУЖЕНИЯ
 # ==========================================
-load_dotenv()  # Загружаем переменные из .env файла
+load_dotenv()
 
-# Получаем токен и ID админа из переменных окружения
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-ADMIN_ID = int(os.getenv('ADMIN_ID'))  # Преобразуем в int
+ADMIN_ID = int(os.getenv('ADMIN_ID'))
 
-# Проверяем, что переменные загрузились
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN не найден в переменных окружения!")
 if not ADMIN_ID:
@@ -39,7 +37,7 @@ video_sent = {}
 user_carts = {}
 
 # ==========================================
-# ЦЕНЫ НА ВИДЕО (1 видео = 1390₽, комбо цены)
+# ЦЕНЫ НА ВИДЕО
 # ==========================================
 SINGLE_VIDEO_PRICE = 1390
 
@@ -156,15 +154,17 @@ def get_main_menu_keyboard(user_id=None):
     if user_id and user_id in user_carts and user_carts[user_id]:
         cart_button = [InlineKeyboardButton(text=f"🛒 Корзина ({len(user_carts[user_id])})", callback_data="show_cart")]
 
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Выбрать видео", callback_data="choose_video")],
-        cart_button if cart_button else [],
-        [InlineKeyboardButton(text="Пригласить друга", url=referal_link)]
-    ])
+    # Убираем пустые строки из клавиатуры
+    keyboard = []
+    keyboard.append([InlineKeyboardButton(text="Выбрать видео", callback_data="choose_video")])
+    if cart_button:
+        keyboard.append(cart_button)
+    keyboard.append([InlineKeyboardButton(text="Пригласить друга", url=referal_link)])
+
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
 def get_video_choice_keyboard():
-    """Клавиатура выбора видео с кнопкой Хочу все"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Perhaps", callback_data="view_video_1"),
          InlineKeyboardButton(text="Масло", callback_data="view_video_2")],
@@ -182,7 +182,6 @@ def get_video_choice_keyboard():
 
 
 def get_empty_cart_keyboard():
-    """Клавиатура для пустой корзины"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Выбрать видео", callback_data="choose_video")],
         [InlineKeyboardButton(text="Главное меню", callback_data="back_to_main")]
@@ -230,29 +229,23 @@ def get_cart_keyboard(user_id):
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-async def update_work_message(user_id, chat_id, text, reply_markup=None):
+async def clear_user_message(user_id):
+    """Безопасно удаляет сохраненное сообщение пользователя"""
     if user_id in user_work_message:
         try:
-            await user_work_message[user_id].edit_text(
-                text,
-                parse_mode="HTML",
-                reply_markup=reply_markup
-            )
-            return user_work_message[user_id]
+            await user_work_message[user_id].delete()
         except Exception as e:
-            print(f"Ошибка редактирования: {e}")
-
-    sent = await bot.send_message(
-        chat_id=chat_id,
-        text=text,
-        parse_mode="HTML",
-        reply_markup=reply_markup
-    )
-    user_work_message[user_id] = sent
-    return sent
+            # Игнорируем ошибки при удалении (сообщение уже могло быть удалено)
+            pass
+        finally:
+            del user_work_message[user_id]
 
 
-async def send_new_message(user_id, chat_id, text, reply_markup=None):
+async def update_work_message(user_id, chat_id, text, reply_markup=None):
+    # Очищаем старое сообщение если есть
+    await clear_user_message(user_id)
+    
+    # Отправляем новое
     sent = await bot.send_message(
         chat_id=chat_id,
         text=text,
@@ -298,12 +291,20 @@ async def send_main_menu(chat_id, user_id):
 
 Выберите видео и добавляйте в корзину!"""
 
-    await send_new_message(user_id, chat_id, main_text, get_main_menu_keyboard(user_id))
+    await update_work_message(user_id, chat_id, main_text, get_main_menu_keyboard(user_id))
 
 
 @dp.message(Command("start"))
-async def start_command(message: types.Message):
+async def start_command(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
+    
+    # Очищаем все данные пользователя при новом старте
+    await clear_user_message(user_id)
+    await state.clear()
+    
+    # Сбрасываем флаг отправки видео, чтобы показать его снова
+    if user_id in video_sent:
+        video_sent[user_id] = False
 
     args = message.text.split()
     referer_id = None
@@ -320,6 +321,8 @@ async def start_command(message: types.Message):
             pass
 
     if user_id in video_sent and video_sent[user_id]:
+        # Если видео уже показывали, сразу показываем главное меню
+        await send_main_menu(message.chat.id, user_id)
         return
 
     video_sent[user_id] = True
@@ -356,14 +359,7 @@ async def start_command(message: types.Message):
 @dp.callback_query(lambda c: c.data == "go_choose_video")
 async def handle_go(callback: CallbackQuery):
     await callback.answer()
-
-    if callback.from_user.id in user_work_message:
-        try:
-            await user_work_message[callback.from_user.id].delete()
-            del user_work_message[callback.from_user.id]
-        except:
-            pass
-
+    await clear_user_message(callback.from_user.id)
     await send_main_menu(callback.message.chat.id, callback.from_user.id)
 
 
@@ -389,13 +385,6 @@ async def back_to_main(callback: CallbackQuery):
 async def back_to_video_choice(callback: CallbackQuery):
     await callback.answer()
     choose_text = "👇 <b>Выберите хореографию:</b>\n\n<i>Нажмите на видео, чтобы посмотреть отрывок</i>"
-
-    if callback.from_user.id in user_work_message:
-        try:
-            await user_work_message[callback.from_user.id].delete()
-        except:
-            pass
-
     await update_work_message(
         callback.from_user.id,
         callback.message.chat.id,
@@ -406,22 +395,17 @@ async def back_to_video_choice(callback: CallbackQuery):
 
 @dp.callback_query(lambda c: c.data == "add_all_to_cart")
 async def add_all_to_cart(callback: CallbackQuery):
-    """Добавляет все 9 видео в корзину и сразу показывает корзину"""
     await callback.answer()
     user_id = callback.from_user.id
 
-    # Создаем список всех видео
     all_videos = [f"video_{i}" for i in range(1, 10)]
 
     if user_id not in user_carts:
         user_carts[user_id] = []
 
-    # Добавляем все видео
     user_carts[user_id] = all_videos.copy()
 
     await callback.answer("✅ Все 9 видео добавлены в корзину!", show_alert=True)
-
-    # Показываем корзину
     await show_cart(callback)
 
 
@@ -456,11 +440,7 @@ async def view_video(callback: CallbackQuery):
 
 Добавьте видео в корзину, чтобы продолжить выбор или оформить заказ."""
 
-    if callback.from_user.id in user_work_message:
-        try:
-            await user_work_message[callback.from_user.id].delete()
-        except:
-            pass
+    await clear_user_message(callback.from_user.id)
 
     if os.path.exists(preview_path):
         video_file = FSInputFile(preview_path)
@@ -501,13 +481,6 @@ async def add_to_cart(callback: CallbackQuery):
         await callback.answer(f"✅ {PREVIEWS_INFO[video_key]['name']} добавлен в корзину!", show_alert=True)
 
         choose_text = "👇 <b>Выберите хореографию:</b>\n\n<i>Нажмите на видео, чтобы посмотреть отрывок</i>"
-
-        if user_id in user_work_message:
-            try:
-                await user_work_message[user_id].delete()
-            except:
-                pass
-
         await update_work_message(
             user_id,
             callback.message.chat.id,
@@ -526,13 +499,6 @@ async def remove_from_cart(callback: CallbackQuery):
         await callback.answer(f"❌ {PREVIEWS_INFO[video_key]['name']} удален из корзины!", show_alert=True)
 
         choose_text = "👇 <b>Выберите хореографию:</b>\n\n<i>Нажмите на видео, чтобы посмотреть отрывок</i>"
-
-        if user_id in user_work_message:
-            try:
-                await user_work_message[user_id].delete()
-            except:
-                pass
-
         await update_work_message(
             user_id,
             callback.message.chat.id,
@@ -557,18 +523,9 @@ async def show_cart(callback: CallbackQuery):
     await callback.answer()
     user_id = callback.from_user.id
 
-    # Если корзина пуста - показываем сообщение с кнопками
     if user_id not in user_carts or not user_carts[user_id]:
         empty_cart_text = "🛒 <b>Ваша корзина пока пуста!</b>\n\nДобавьте видео через раздел «Выбрать видео»."
-
-        if user_id in user_work_message:
-            try:
-                await user_work_message[user_id].delete()
-            except:
-                pass
-
-        sent = await callback.message.answer(empty_cart_text, parse_mode="HTML", reply_markup=get_empty_cart_keyboard())
-        user_work_message[user_id] = sent
+        await update_work_message(user_id, callback.message.chat.id, empty_cart_text, get_empty_cart_keyboard())
         return
 
     total_price, final_price, discount = calculate_total_price(user_carts[user_id])
@@ -579,17 +536,10 @@ async def show_cart(callback: CallbackQuery):
         video_name = PREVIEWS_INFO[video_key]['name']
         cart_text += f"• {video_name}\n"
 
-    cart_text += f"Выбрано видео: {video_count} шт.\n"
+    cart_text += f"\nВыбрано видео: {video_count} шт.\n"
     cart_text += f"<b>К оплате: {final_price}₽</b>"
 
-    if user_id in user_work_message:
-        try:
-            await user_work_message[user_id].delete()
-        except:
-            pass
-
-    sent = await callback.message.answer(cart_text, parse_mode="HTML", reply_markup=get_cart_keyboard(user_id))
-    user_work_message[user_id] = sent
+    await update_work_message(user_id, callback.message.chat.id, cart_text, get_cart_keyboard(user_id))
 
 
 @dp.callback_query(lambda c: c.data == "clear_cart")
@@ -597,21 +547,11 @@ async def clear_cart(callback: CallbackQuery):
     await callback.answer()
     user_id = callback.from_user.id
 
-    # Очищаем корзину
     if user_id in user_carts:
         user_carts[user_id] = []
 
-    # Показываем сообщение о пустой корзине
     empty_cart_text = "🛒 <b>Корзина очищена!</b>\n\nДобавьте видео через раздел «Выбрать видео»."
-
-    if user_id in user_work_message:
-        try:
-            await user_work_message[user_id].delete()
-        except:
-            pass
-
-    sent = await callback.message.answer(empty_cart_text, parse_mode="HTML", reply_markup=get_empty_cart_keyboard())
-    user_work_message[user_id] = sent
+    await update_work_message(user_id, callback.message.chat.id, empty_cart_text, get_empty_cart_keyboard())
 
 
 @dp.callback_query(lambda c: c.data == "checkout")
@@ -621,15 +561,7 @@ async def checkout(callback: CallbackQuery, state: FSMContext):
 
     if user_id not in user_carts or not user_carts[user_id]:
         empty_cart_text = "🛒 <b>Ваша корзина пуста!</b>\n\nДобавьте видео через раздел «Выбрать видео»."
-
-        if user_id in user_work_message:
-            try:
-                await user_work_message[user_id].delete()
-            except:
-                pass
-
-        sent = await callback.message.answer(empty_cart_text, parse_mode="HTML", reply_markup=get_empty_cart_keyboard())
-        user_work_message[user_id] = sent
+        await update_work_message(user_id, callback.message.chat.id, empty_cart_text, get_empty_cart_keyboard())
         return
 
     total_price, final_price, discount = calculate_total_price(user_carts[user_id])
@@ -685,14 +617,7 @@ async def checkout(callback: CallbackQuery, state: FSMContext):
         [InlineKeyboardButton(text="❓ Помощь", url="https://t.me/reji_pantera")]
     ])
 
-    if user_id in user_work_message:
-        try:
-            await user_work_message[user_id].delete()
-        except:
-            pass
-
-    sent = await callback.message.answer(payment_details, parse_mode="HTML", reply_markup=payment_keyboard)
-    user_work_message[user_id] = sent
+    await update_work_message(user_id, callback.message.chat.id, payment_details, payment_keyboard)
     await state.set_state(PaymentStates.waiting_for_payment)
 
 
@@ -728,7 +653,7 @@ async def confirm_payment(callback: CallbackQuery, state: FSMContext):
         [InlineKeyboardButton(text="Помощь", url="https://t.me/reji_pantera")]
     ])
 
-    await callback.message.answer(phone_text, parse_mode="HTML", reply_markup=phone_keyboard)
+    await update_work_message(callback.from_user.id, callback.message.chat.id, phone_text, phone_keyboard)
     await state.set_state(PaymentStates.waiting_for_phone)
 
 
@@ -783,6 +708,7 @@ async def handle_phone_input(message: types.Message, state: FSMContext):
         parse_mode="HTML"
     )
 
+    await clear_user_message(user_id)
     await state.clear()
 
 
@@ -797,7 +723,7 @@ async def send_help(message: types.Message):
 3. Нажмите "Погнали"
 4. Нажмите "Выбрать видео"
 5. Выберите видео - посмотрите отрывок
-6. Добавьте видео в корзину (➕) или нажмите "⭐️ Хочу всё"
+6. Добавьте видео в корзину
 7. Продолжите выбор или перейдите в корзину
 8. В корзине оформите заказ
 9. Нажмите "✅ Я оплатил(а)"
