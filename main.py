@@ -75,60 +75,61 @@ def calculate_total_price(selected_videos):
     return total_price, total_price, 0
 
 
+# ✅ ИСПРАВЛЕНО: Используем прямые ссылки из канала вместо локальных файлов
 PREVIEWS_INFO = {
     "video_1": {
         "name": "Perhaps",
         "description": "хореография с атмосферой загадки и лёгкой недосказанности. Плавная, тягучая, идеально для проработки линий.",
         "price": PRICES["video_1"],
-        "preview": "videos/preview1.mp4"
+        "url": "https://t.me/c/3946700390/2"
     },
     "video_2": {
         "name": "Масло",
         "description": "скользящая, вязкая манера. Здесь важна текучесть и мягкость, движения будто растекаются в пространстве.",
         "price": PRICES["video_2"],
-        "preview": "videos/preview2.mp4"
+        "url": "https://t.me/c/3946700390/3"
     },
     "video_3": {
         "name": "Paper",
         "description": "чёткая, графичная хореография с акцентами. Можно почувствовать хрусткость и лёгкую агрессию в подаче.",
         "price": PRICES["video_3"],
-        "preview": "videos/preview3.mp4"
+        "url": "https://t.me/c/3946700390/4"
     },
     "video_4": {
         "name": "Snap",
         "description": "резкая, импульсивная связка. Быстрая смена положений, много ударов и изоляций. Энергия на максимум.",
         "price": PRICES["video_4"],
-        "preview": "videos/preview4.mp4"
+        "url": "https://t.me/c/3946700390/5"
     },
     "video_5": {
         "name": "Цыганка",
         "description": "яркая, темпераментная хореография с фолк-вайбом. Можно прожить драйв, свободу и внутренний огонь.",
         "price": PRICES["video_5"],
-        "preview": "videos/preview5.mp4"
+        "url": "https://t.me/c/3946700390/6"
     },
     "video_6": {
         "name": "T fest",
         "description": "дерзкая, уверенная подача под мощный бит. Подходит, если хочется почувствовать себя в центре внимания без лишней сладости.",
         "price": PRICES["video_6"],
-        "preview": "videos/preview6.mp4"
+        "url": "https://t.me/c/3946700390/7"
     },
     "video_7": {
         "name": "Порвано",
         "description": "надломленная, чувственная хореография. Здесь есть надрыв, эмоция и немного хаоса в хорошем смысле.",
         "price": PRICES["video_7"],
-        "preview": "videos/preview7.mp4"
+        "url": "https://t.me/c/3946700390/8"
     },
     "video_8": {
         "name": "Drake",
         "description": "плавная, напевная манера. Движения под вокал, стелиться по полу и работать с настроением «лёгкой меланхолии».",
         "price": PRICES["video_8"],
-        "preview": "videos/preview8.mp4"
+        "url": "https://t.me/c/3946700390/9"
     },
     "video_9": {
         "name": "Yasmi",
         "description": "женственная, секси-хореография с восточным оттенком. Та самая, когда можно замедлиться, вытащить мягкость и красоту движения.",
         "price": PRICES["video_9"],
-        "preview": "videos/preview9.mp4"
+        "url": "https://t.me/c/3946700390/10"
     }
 }
 
@@ -154,7 +155,6 @@ def get_main_menu_keyboard(user_id=None):
     if user_id and user_id in user_carts and user_carts[user_id]:
         cart_button = [InlineKeyboardButton(text=f"🛒 Корзина ({len(user_carts[user_id])})", callback_data="show_cart")]
 
-    # Убираем пустые строки из клавиатуры
     keyboard = []
     keyboard.append([InlineKeyboardButton(text="Выбрать видео", callback_data="choose_video")])
     if cart_button:
@@ -209,8 +209,6 @@ def get_cart_keyboard(user_id):
     if user_id not in user_carts or not user_carts[user_id]:
         return None
 
-    total_price, final_price, discount = calculate_total_price(user_carts[user_id])
-
     keyboard = []
     for video_key in user_carts[user_id]:
         video_name = PREVIEWS_INFO[video_key]['name']
@@ -235,17 +233,14 @@ async def clear_user_message(user_id):
         try:
             await user_work_message[user_id].delete()
         except Exception as e:
-            # Игнорируем ошибки при удалении (сообщение уже могло быть удалено)
             pass
         finally:
             del user_work_message[user_id]
 
 
 async def update_work_message(user_id, chat_id, text, reply_markup=None):
-    # Очищаем старое сообщение если есть
     await clear_user_message(user_id)
     
-    # Отправляем новое
     sent = await bot.send_message(
         chat_id=chat_id,
         text=text,
@@ -298,11 +293,9 @@ async def send_main_menu(chat_id, user_id):
 async def start_command(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     
-    # Очищаем все данные пользователя при новом старте
     await clear_user_message(user_id)
     await state.clear()
     
-    # Сбрасываем флаг отправки видео, чтобы показать его снова
     if user_id in video_sent:
         video_sent[user_id] = False
 
@@ -321,7 +314,6 @@ async def start_command(message: types.Message, state: FSMContext):
             pass
 
     if user_id in video_sent and video_sent[user_id]:
-        # Если видео уже показывали, сразу показываем главное меню
         await send_main_menu(message.chat.id, user_id)
         return
 
@@ -409,6 +401,7 @@ async def add_all_to_cart(callback: CallbackQuery):
     await show_cart(callback)
 
 
+# ✅ ИСПРАВЛЕНО: Отправляем видео по прямой ссылке из канала
 @dp.callback_query(lambda c: c.data.startswith("view_video_"))
 async def view_video(callback: CallbackQuery):
     await callback.answer()
@@ -416,7 +409,6 @@ async def view_video(callback: CallbackQuery):
     video_num = callback.data.split("_")[-1]
     video_key = f"video_{video_num}"
     video_info = PREVIEWS_INFO[video_key]
-    preview_path = video_info["preview"]
 
     in_cart = callback.from_user.id in user_carts and video_key in user_carts[callback.from_user.id]
     cart_status = "✅ В корзине" if in_cart else "❌ Не в корзине"
@@ -442,25 +434,17 @@ async def view_video(callback: CallbackQuery):
 
     await clear_user_message(callback.from_user.id)
 
-    if os.path.exists(preview_path):
-        video_file = FSInputFile(preview_path)
-        sent = await callback.message.answer_video(
-            video=video_file,
-            caption=caption,
-            parse_mode="HTML",
-            reply_markup=get_video_view_keyboard(video_key, callback.from_user.id),
-            width=1080,
-            height=1920,
-            supports_streaming=True
-        )
-        user_work_message[callback.from_user.id] = sent
-    else:
-        sent = await callback.message.answer(
-            caption,
-            parse_mode="HTML",
-            reply_markup=get_video_view_keyboard(video_key, callback.from_user.id)
-        )
-        user_work_message[callback.from_user.id] = sent
+    # ✅ Отправляем видео по URL из канала
+    sent = await callback.message.answer_video(
+        video=video_info["url"],
+        caption=caption,
+        parse_mode="HTML",
+        reply_markup=get_video_view_keyboard(video_key, callback.from_user.id),
+        width=1080,
+        height=1920,
+        supports_streaming=True
+    )
+    user_work_message[callback.from_user.id] = sent
 
 
 @dp.callback_query(lambda c: c.data.startswith("add_to_cart_"))
@@ -749,6 +733,7 @@ async def main():
 
     print("🤖 Бот запущен!")
     print(f"👑 Админ ID: {ADMIN_ID}")
+    print("📹 Видео загружаются из канала по прямым ссылкам")
 
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
