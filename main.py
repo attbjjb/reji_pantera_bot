@@ -1,6 +1,5 @@
 import asyncio
 import os
-from pathlib import Path
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import (InlineKeyboardMarkup, InlineKeyboardButton,
@@ -10,26 +9,21 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 import time
 from dotenv import load_dotenv
-from urllib.parse import quote
 
 # ==========================================
 # ЗАГРУЗКА ПЕРЕМЕННЫХ ОКРУЖЕНИЯ
 # ==========================================
-load_dotenv()
+load_dotenv()  # Загружаем переменные из .env файла
 
+# Получаем токен и ID админа из переменных окружения
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-ADMIN_ID = int(os.getenv('ADMIN_ID'))
+ADMIN_ID = int(os.getenv('ADMIN_ID'))  # Преобразуем в int
 
+# Проверяем, что переменные загрузились
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN не найден в переменных окружения!")
 if not ADMIN_ID:
     raise ValueError("ADMIN_ID не найден в переменных окружения!")
-
-# ==========================================
-# БАЗОВАЯ ДИРЕКТОРИЯ ПРОЕКТА
-# ==========================================
-BASE_DIR = Path(__file__).parent
-VIDEOS_DIR = BASE_DIR / "videos"
 
 # ==========================================
 # СОЗДАНИЕ БОТА
@@ -45,7 +39,7 @@ video_sent = {}
 user_carts = {}
 
 # ==========================================
-# ЦЕНЫ НА ВИДЕО
+# ЦЕНЫ НА ВИДЕО (1 видео = 1390₽, комбо цены)
 # ==========================================
 SINGLE_VIDEO_PRICE = 1390
 
@@ -73,63 +67,6 @@ PRICES = {
     "video_9": SINGLE_VIDEO_PRICE
 }
 
-PREVIEWS_INFO = {
-    "video_1": {
-        "name": "Perhaps",
-        "description": "хореография с атмосферой загадки и лёгкой недосказанности. Плавная, тягучая, идеально для проработки линий.",
-        "price": PRICES["video_1"],
-        "preview": "preview1.mp4"
-    },
-    "video_2": {
-        "name": "Масло",
-        "description": "скользящая, вязкая манера. Здесь важна текучесть и мягкость, движения будто растекаются в пространстве.",
-        "price": PRICES["video_2"],
-        "preview": "preview2.mp4"
-    },
-    "video_3": {
-        "name": "Paper",
-        "description": "чёткая, графичная хореография с акцентами. Можно почувствовать хрусткость и лёгкую агрессию в подаче.",
-        "price": PRICES["video_3"],
-        "preview": "preview3.mp4"
-    },
-    "video_4": {
-        "name": "Snap",
-        "description": "резкая, импульсивная связка. Быстрая смена положений, много ударов и изоляций. Энергия на максимум.",
-        "price": PRICES["video_4"],
-        "preview": "preview4.mp4"
-    },
-    "video_5": {
-        "name": "Цыганка",
-        "description": "яркая, темпераментная хореография с фолк-вайбом. Можно прожить драйв, свободу и внутренний огонь.",
-        "price": PRICES["video_5"],
-        "preview": "preview5.mp4"
-    },
-    "video_6": {
-        "name": "T fest",
-        "description": "дерзкая, уверенная подача под мощный бит. Подходит, если хочется почувствовать себя в центре внимания без лишней сладости.",
-        "price": PRICES["video_6"],
-        "preview": "preview6.mp4"
-    },
-    "video_7": {
-        "name": "Порвано",
-        "description": "надломленная, чувственная хореография. Здесь есть надрыв, эмоция и немного хаоса в хорошем смысле.",
-        "price": PRICES["video_7"],
-        "preview": "preview7.mp4"
-    },
-    "video_8": {
-        "name": "Drake",
-        "description": "плавная, напевная манера. Движения под вокал, стелиться по полу и работать с настроением «лёгкой меланхолии».",
-        "price": PRICES["video_8"],
-        "preview": "preview8.mp4"
-    },
-    "video_9": {
-        "name": "Yasmi",
-        "description": "женственная, секси-хореография с восточным оттенком. Та самая, когда можно замедлиться, вытащить мягкость и красоту движения.",
-        "price": PRICES["video_9"],
-        "preview": "preview9.mp4"
-    }
-}
-
 
 def calculate_total_price(selected_videos):
     video_count = len(selected_videos)
@@ -140,9 +77,70 @@ def calculate_total_price(selected_videos):
     return total_price, total_price, 0
 
 
+PREVIEWS_INFO = {
+    "video_1": {
+        "name": "Perhaps",
+        "description": "хореография с атмосферой загадки и лёгкой недосказанности. Плавная, тягучая, идеально для проработки линий.",
+        "price": PRICES["video_1"],
+        "preview": "videos/preview1.mp4"
+    },
+    "video_2": {
+        "name": "Масло",
+        "description": "скользящая, вязкая манера. Здесь важна текучесть и мягкость, движения будто растекаются в пространстве.",
+        "price": PRICES["video_2"],
+        "preview": "videos/preview2.mp4"
+    },
+    "video_3": {
+        "name": "Paper",
+        "description": "чёткая, графичная хореография с акцентами. Можно почувствовать хрусткость и лёгкую агрессию в подаче.",
+        "price": PRICES["video_3"],
+        "preview": "videos/preview3.mp4"
+    },
+    "video_4": {
+        "name": "Snap",
+        "description": "резкая, импульсивная связка. Быстрая смена положений, много ударов и изоляций. Энергия на максимум.",
+        "price": PRICES["video_4"],
+        "preview": "videos/preview4.mp4"
+    },
+    "video_5": {
+        "name": "Цыганка",
+        "description": "яркая, темпераментная хореография с фолк-вайбом. Можно прожить драйв, свободу и внутренний огонь.",
+        "price": PRICES["video_5"],
+        "preview": "videos/preview5.mp4"
+    },
+    "video_6": {
+        "name": "T fest",
+        "description": "дерзкая, уверенная подача под мощный бит. Подходит, если хочется почувствовать себя в центре внимания без лишней сладости.",
+        "price": PRICES["video_6"],
+        "preview": "videos/preview6.mp4"
+    },
+    "video_7": {
+        "name": "Порвано",
+        "description": "надломленная, чувственная хореография. Здесь есть надрыв, эмоция и немного хаоса в хорошем смысле.",
+        "price": PRICES["video_7"],
+        "preview": "videos/preview7.mp4"
+    },
+    "video_8": {
+        "name": "Drake",
+        "description": "плавная, напевная манера. Движения под вокал, стелиться по полу и работать с настроением «лёгкой меланхолии».",
+        "price": PRICES["video_8"],
+        "preview": "videos/preview8.mp4"
+    },
+    "video_9": {
+        "name": "Yasmi",
+        "description": "женственная, секси-хореография с восточным оттенком. Та самая, когда можно замедлиться, вытащить мягкость и красоту движения.",
+        "price": PRICES["video_9"],
+        "preview": "videos/preview9.mp4"
+    }
+}
+
+
 class PaymentStates(StatesGroup):
     waiting_for_payment = State()
     waiting_for_phone = State()
+
+
+from urllib.parse import quote
 
 
 def get_main_menu_keyboard(user_id=None):
@@ -166,6 +164,7 @@ def get_main_menu_keyboard(user_id=None):
 
 
 def get_video_choice_keyboard():
+    """Клавиатура выбора видео с кнопкой Хочу все"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Perhaps", callback_data="view_video_1"),
          InlineKeyboardButton(text="Масло", callback_data="view_video_2")],
@@ -183,6 +182,7 @@ def get_video_choice_keyboard():
 
 
 def get_empty_cart_keyboard():
+    """Клавиатура для пустой корзины"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Выбрать видео", callback_data="choose_video")],
         [InlineKeyboardButton(text="Главное меню", callback_data="back_to_main")]
@@ -209,6 +209,8 @@ def get_video_view_keyboard(video_key, user_id):
 def get_cart_keyboard(user_id):
     if user_id not in user_carts or not user_carts[user_id]:
         return None
+
+    total_price, final_price, discount = calculate_total_price(user_carts[user_id])
 
     keyboard = []
     for video_key in user_carts[user_id]:
@@ -321,12 +323,11 @@ async def start_command(message: types.Message):
         return
 
     video_sent[user_id] = True
-    # ИСПРАВЛЕНО: используем Path для пути к видео
-    video_note_path = VIDEOS_DIR / "preview.mp4"
+    video_note_path = "videos/preview.mp4"
 
     try:
-        if video_note_path.exists():
-            video_note_file = FSInputFile(str(video_note_path))
+        if os.path.exists(video_note_path):
+            video_note_file = FSInputFile(video_note_path)
             await message.answer_video_note(
                 video_note=video_note_file,
                 duration=15,
@@ -405,17 +406,22 @@ async def back_to_video_choice(callback: CallbackQuery):
 
 @dp.callback_query(lambda c: c.data == "add_all_to_cart")
 async def add_all_to_cart(callback: CallbackQuery):
+    """Добавляет все 9 видео в корзину и сразу показывает корзину"""
     await callback.answer()
     user_id = callback.from_user.id
 
+    # Создаем список всех видео
     all_videos = [f"video_{i}" for i in range(1, 10)]
 
     if user_id not in user_carts:
         user_carts[user_id] = []
 
+    # Добавляем все видео
     user_carts[user_id] = all_videos.copy()
 
     await callback.answer("✅ Все 9 видео добавлены в корзину!", show_alert=True)
+
+    # Показываем корзину
     await show_cart(callback)
 
 
@@ -426,8 +432,7 @@ async def view_video(callback: CallbackQuery):
     video_num = callback.data.split("_")[-1]
     video_key = f"video_{video_num}"
     video_info = PREVIEWS_INFO[video_key]
-    # ИСПРАВЛЕНО: используем Path для пути к превью
-    preview_path = VIDEOS_DIR / video_info["preview"]
+    preview_path = video_info["preview"]
 
     in_cart = callback.from_user.id in user_carts and video_key in user_carts[callback.from_user.id]
     cart_status = "✅ В корзине" if in_cart else "❌ Не в корзине"
@@ -457,9 +462,8 @@ async def view_video(callback: CallbackQuery):
         except:
             pass
 
-    # ИСПРАВЛЕНО: проверяем через Path.exists()
-    if preview_path.exists():
-        video_file = FSInputFile(str(preview_path))
+    if os.path.exists(preview_path):
+        video_file = FSInputFile(preview_path)
         sent = await callback.message.answer_video(
             video=video_file,
             caption=caption,
@@ -553,6 +557,7 @@ async def show_cart(callback: CallbackQuery):
     await callback.answer()
     user_id = callback.from_user.id
 
+    # Если корзина пуста - показываем сообщение с кнопками
     if user_id not in user_carts or not user_carts[user_id]:
         empty_cart_text = "🛒 <b>Ваша корзина пока пуста!</b>\n\nДобавьте видео через раздел «Выбрать видео»."
 
@@ -592,9 +597,11 @@ async def clear_cart(callback: CallbackQuery):
     await callback.answer()
     user_id = callback.from_user.id
 
+    # Очищаем корзину
     if user_id in user_carts:
         user_carts[user_id] = []
 
+    # Показываем сообщение о пустой корзине
     empty_cart_text = "🛒 <b>Корзина очищена!</b>\n\nДобавьте видео через раздел «Выбрать видео»."
 
     if user_id in user_work_message:
@@ -811,7 +818,8 @@ async def send_help(message: types.Message):
 
 
 async def main():
-    os.makedirs(VIDEOS_DIR, exist_ok=True)
+    os.makedirs("videos", exist_ok=True)
+    os.makedirs("images", exist_ok=True)
 
     print("🤖 Бот запущен!")
     print(f"👑 Админ ID: {ADMIN_ID}")
