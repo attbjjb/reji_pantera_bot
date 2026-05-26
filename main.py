@@ -24,9 +24,9 @@ if not ADMIN_ID:
     raise ValueError("ADMIN_ID не найден в переменных окружения!")
 
 # ==========================================
-# СОЗДАНИЕ БОТА
+# СОЗДАНИЕ БОТА (с увеличенным таймаутом)
 # ==========================================
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(token=BOT_TOKEN, timeout=120)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
@@ -121,7 +121,7 @@ PREVIEWS_INFO = {
         "name": "Drake",
         "description": "плавная, напевная манера. Движения под вокал, стелиться по полу и работать с настроением «лёгкой меланхолии».",
         "price": PRICES["video_8"],
-        "preview": "videos/preview8.MP4"
+        "preview": "videos/preview8.mp4"
     },
     "video_9": {
         "name": "Yasmi",
@@ -310,7 +310,6 @@ async def send_main_menu(chat_id, user_id):
 async def start_command(message: types.Message):
     user_id = message.from_user.id
 
-    # Очищаем предыдущее сообщение если есть
     if user_id in user_work_message:
         try:
             await user_work_message[user_id].delete()
@@ -469,18 +468,30 @@ async def view_video(callback: CallbackQuery):
             pass
 
     if os.path.exists(preview_path):
-        video_file = FSInputFile(preview_path)
-        sent = await callback.message.answer_video(
-            video=video_file,
-            caption=caption,
-            parse_mode="HTML",
-            reply_markup=get_video_view_keyboard(video_key, callback.from_user.id),
-            width=1080,
-            height=1920,
-            supports_streaming=True
-        )
-        user_work_message[callback.from_user.id] = sent
+        try:
+            video_file = FSInputFile(preview_path)
+            sent = await bot.send_video(
+                chat_id=callback.message.chat.id,
+                video=video_file,
+                caption=caption,
+                parse_mode="HTML",
+                reply_markup=get_video_view_keyboard(video_key, callback.from_user.id),
+                width=720,
+                height=1280,
+                supports_streaming=True,
+                request_timeout=120
+            )
+            user_work_message[callback.from_user.id] = sent
+        except Exception as e:
+            print(f"Ошибка отправки видео {video_key}: {e}")
+            sent = await callback.message.answer(
+                f"🎥 {caption}\n\n⚠️ Видео временно недоступно, попробуйте позже",
+                parse_mode="HTML",
+                reply_markup=get_video_view_keyboard(video_key, callback.from_user.id)
+            )
+            user_work_message[callback.from_user.id] = sent
     else:
+        print(f"Файл не найден: {preview_path}")
         sent = await callback.message.answer(
             caption,
             parse_mode="HTML",
