@@ -13,13 +13,11 @@ from dotenv import load_dotenv
 # ==========================================
 # ЗАГРУЗКА ПЕРЕМЕННЫХ ОКРУЖЕНИЯ
 # ==========================================
-load_dotenv()  # Загружаем переменные из .env файла
+load_dotenv()
 
-# Получаем токен и ID админа из переменных окружения
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-ADMIN_ID = int(os.getenv('ADMIN_ID'))  # Преобразуем в int
+ADMIN_ID = int(os.getenv('ADMIN_ID'))
 
-# Проверяем, что переменные загрузились
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN не найден в переменных окружения!")
 if not ADMIN_ID:
@@ -35,11 +33,10 @@ dp = Dispatcher(storage=storage)
 # Хранилища
 user_work_message = {}
 user_data = {}
-video_sent = {}
 user_carts = {}
 
 # ==========================================
-# ЦЕНЫ НА ВИДЕО (1 видео = 1390₽, комбо цены)
+# ЦЕНЫ НА ВИДЕО
 # ==========================================
 SINGLE_VIDEO_PRICE = 1390
 
@@ -164,7 +161,6 @@ def get_main_menu_keyboard(user_id=None):
 
 
 def get_video_choice_keyboard():
-    """Клавиатура выбора видео с кнопкой Хочу все"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Perhaps", callback_data="view_video_1"),
          InlineKeyboardButton(text="Масло", callback_data="view_video_2")],
@@ -182,7 +178,6 @@ def get_video_choice_keyboard():
 
 
 def get_empty_cart_keyboard():
-    """Клавиатура для пустой корзины"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Выбрать видео", callback_data="choose_video")],
         [InlineKeyboardButton(text="Главное меню", callback_data="back_to_main")]
@@ -253,6 +248,16 @@ async def update_work_message(user_id, chat_id, text, reply_markup=None):
 
 
 async def send_new_message(user_id, chat_id, text, reply_markup=None):
+    try:
+        if user_id in user_work_message:
+            try:
+                await user_work_message[user_id].delete()
+            except:
+                pass
+            del user_work_message[user_id]
+    except:
+        pass
+    
     sent = await bot.send_message(
         chat_id=chat_id,
         text=text,
@@ -305,6 +310,14 @@ async def send_main_menu(chat_id, user_id):
 async def start_command(message: types.Message):
     user_id = message.from_user.id
 
+    # Очищаем предыдущее сообщение если есть
+    if user_id in user_work_message:
+        try:
+            await user_work_message[user_id].delete()
+            del user_work_message[user_id]
+        except:
+            pass
+
     args = message.text.split()
     referer_id = None
     if len(args) > 1:
@@ -319,10 +332,6 @@ async def start_command(message: types.Message):
         except ValueError:
             pass
 
-    if user_id in video_sent and video_sent[user_id]:
-        return
-
-    video_sent[user_id] = True
     video_note_path = "videos/preview.mp4"
 
     try:
@@ -333,24 +342,25 @@ async def start_command(message: types.Message):
                 duration=15,
                 length=320
             )
-
-        await asyncio.sleep(0.5)
-
-        pognali_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="ПОГНАЛИ", callback_data="go_choose_video")]
-        ])
-
-        sent = await message.answer(
-            "If you need the English version of the bot, follow the link @reji_pantera_bot\n\n"
-            "Если хотите остаться в русской версии бота, нажмите «Погнали», чтобы перейти к выбору хореографии",
-            parse_mode="HTML",
-            reply_markup=pognali_keyboard
-        )
-
-        user_work_message[user_id] = sent
-
+        else:
+            print(f"Файл не найден: {video_note_path}")
     except Exception as e:
-        await message.answer(f"Ошибка: {str(e)}")
+        print(f"Ошибка отправки видео: {e}")
+
+    await asyncio.sleep(0.5)
+
+    pognali_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="ПОГНАЛИ", callback_data="go_choose_video")]
+    ])
+
+    sent = await message.answer(
+        "If you need the English version of the bot, follow the link @reji_pantera_bot\n\n"
+        "Если хотите остаться в русской версии бота, нажмите «Погнали», чтобы перейти к выбору хореографии",
+        parse_mode="HTML",
+        reply_markup=pognali_keyboard
+    )
+
+    user_work_message[user_id] = sent
 
 
 @dp.callback_query(lambda c: c.data == "go_choose_video")
@@ -406,22 +416,18 @@ async def back_to_video_choice(callback: CallbackQuery):
 
 @dp.callback_query(lambda c: c.data == "add_all_to_cart")
 async def add_all_to_cart(callback: CallbackQuery):
-    """Добавляет все 9 видео в корзину и сразу показывает корзину"""
     await callback.answer()
     user_id = callback.from_user.id
 
-    # Создаем список всех видео
     all_videos = [f"video_{i}" for i in range(1, 10)]
 
     if user_id not in user_carts:
         user_carts[user_id] = []
 
-    # Добавляем все видео
     user_carts[user_id] = all_videos.copy()
 
     await callback.answer("✅ Все 9 видео добавлены в корзину!", show_alert=True)
 
-    # Показываем корзину
     await show_cart(callback)
 
 
@@ -557,7 +563,6 @@ async def show_cart(callback: CallbackQuery):
     await callback.answer()
     user_id = callback.from_user.id
 
-    # Если корзина пуста - показываем сообщение с кнопками
     if user_id not in user_carts or not user_carts[user_id]:
         empty_cart_text = "🛒 <b>Ваша корзина пока пуста!</b>\n\nДобавьте видео через раздел «Выбрать видео»."
 
@@ -597,11 +602,9 @@ async def clear_cart(callback: CallbackQuery):
     await callback.answer()
     user_id = callback.from_user.id
 
-    # Очищаем корзину
     if user_id in user_carts:
         user_carts[user_id] = []
 
-    # Показываем сообщение о пустой корзине
     empty_cart_text = "🛒 <b>Корзина очищена!</b>\n\nДобавьте видео через раздел «Выбрать видео»."
 
     if user_id in user_work_message:
