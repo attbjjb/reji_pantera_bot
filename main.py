@@ -121,7 +121,7 @@ PREVIEWS_INFO = {
         "name": "Drake",
         "description": "плавная, напевная манера. Движения под вокал, стелиться по полу и работать с настроением «лёгкой меланхолии».",
         "price": PRICES["video_8"],
-        "preview": "videos/preview8.mp4"
+        "preview": "videos/preview8.MP4"
     },
     "video_9": {
         "name": "Yasmi",
