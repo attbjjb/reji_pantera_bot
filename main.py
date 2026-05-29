@@ -602,19 +602,14 @@ async def checkout(callback: CallbackQuery, state: FSMContext):
 
 🔑 Ваш ID платежа: <code>{payment_id}</code>
 
-📝 <b>ИНСТРУКЦИЯ:</b>
-1. Переведите точную сумму {final_price}₽ на номер 89932481825 (OZON BANK/T BANK)
-2. <b>ПРОВЕРЬТЕ имя получателя (должно быть РЕГИНА ЛИНАРОВНА Ф.)</b>
-3. В комментарии к переводу укажите ID платежа: <code>{payment_id}</code>
-4. Нажмите "✅ Я ОПЛАТИЛ(А)" ниже
 
-⚠️ После подтверждения оплаты вы получите все выбранные видео в течение 1 часа!
+⚠️ После подтверждения оплаты с вами свяжется @reji_pantera!
 """
 
     payment_keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✅ Я ОПЛАТИЛ(А)", callback_data="confirm_payment")],
-        [InlineKeyboardButton(text="◀️ Назад в корзину", callback_data="show_cart")],
-        [InlineKeyboardButton(text="❓ Помощь", url="https://t.me/reji_pantera")]
+        [InlineKeyboardButton(text="Назад в корзину", callback_data="show_cart")],
+        [InlineKeyboardButton(text="Помощь", url="https://t.me/reji_pantera")]
     ])
 
     await update_work_message(user_id, callback.message.chat.id, payment_details, payment_keyboard)
