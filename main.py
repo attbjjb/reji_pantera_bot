@@ -344,8 +344,7 @@ async def start_command(message: types.Message, state: FSMContext):
         ])
 
         sent = await message.answer(
-            "If you need the English version of the bot, follow the link @reji_pantera_bot\n\n"
-            "Если хотите остаться в русской версии бота, нажмите «Погнали», чтобы перейти к выбору хореографии",
+            "Нажмите «Погнали», чтобы перейти к выбору хореографии",
             parse_mode="HTML",
             reply_markup=pognali_keyboard
         )
