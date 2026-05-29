@@ -412,25 +412,16 @@ async def view_video(callback: CallbackQuery):
     in_cart = callback.from_user.id in user_carts and video_key in user_carts[callback.from_user.id]
     cart_status = "✅ В корзине" if in_cart else "❌ Не в корзине"
 
-    description_text = f"""🎬 <b>{video_info['name']}</b>
+    description_text = f"""<b>{video_info['name']}</b>
 
-📝 <b>Описание:</b>
+ <b>Описание:</b>
 {video_info['description']}
 
-💰 <b>Цена:</b> {SINGLE_VIDEO_PRICE} рублей (при покупке одного)
-📊 <b>Статус:</b> {cart_status}
+ <b>Цена:</b> {SINGLE_VIDEO_PRICE} рублей (при покупке одного)
+ <b>Статус:</b> {cart_status}
 
-<b>🎁 Комбо-цены:</b>
-• 2 видео — 1790₽
-• 3 видео — 2190₽
-• 4 видео — 2590₽
-• 5 видео — 2990₽
-• 6 видео — 3390₽
-• 7 видео — 3790₽
-• 8 видео — 4190₽
-• 9 видео — 4590₽
 
-▶️ <b>Посмотреть отрывок:</b>
+ <b>Посмотреть отрывок:</b>
 {video_link}
 
 Добавьте видео в корзину, чтобы продолжить выбор или оформить заказ."""
