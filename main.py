@@ -427,8 +427,8 @@ async def view_video(callback: CallbackQuery):
 Добавьте видео в корзину, чтобы продолжить выбор или оформить заказ."""
 
     await update_work_message(
-        callback.from_user.id, 
-        callback.message.chat.id, 
+        callback.from_user.id,
+        callback.message.chat.id,
         description_text,
         get_video_view_keyboard(video_key, callback.from_user.id)
     )
@@ -569,17 +569,17 @@ async def checkout(callback: CallbackQuery, state: FSMContext):
 ✅ <b>Правильное имя: РЕГИНА ЛИНАРОВНА Ф.</b>
 
 ❌ <b>Если видите другое имя - НЕ ПЕРЕВОДИТЕ!</b>
-Это могут быть мошенники. Сразу напишите @reji_pantera
+Это могут быть мошенники. Сразу напишите @rejina_pantera
 
 🔑 Ваш ID платежа: <code>{payment_id}</code>
 
-⚠️ После подтверждения оплаты с вами свяжется @reji_pantera!
+⚠️ После подтверждения оплаты с вами свяжется @rejina_pantera!
 """
 
     payment_keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✅ Я ОПЛАТИЛ(А)", callback_data="confirm_payment")],
         [InlineKeyboardButton(text="Назад в корзину", callback_data="show_cart")],
-        [InlineKeyboardButton(text="Помощь", url="https://t.me/reji_pantera")]
+        [InlineKeyboardButton(text="Помощь", url="https://t.me/rejina_pantera")]
     ])
 
     await update_work_message(user_id, callback.message.chat.id, payment_details, payment_keyboard)
@@ -615,7 +615,7 @@ async def confirm_payment(callback: CallbackQuery, state: FSMContext):
 
     phone_keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="◀️ Назад", callback_data="show_cart")],
-        [InlineKeyboardButton(text="Помощь", url="https://t.me/reji_pantera")]
+        [InlineKeyboardButton(text="Помощь", url="https://t.me/rejina_pantera")]
     ])
 
     await update_work_message(callback.from_user.id, callback.message.chat.id, phone_text, phone_keyboard)
