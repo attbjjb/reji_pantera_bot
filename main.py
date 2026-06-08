@@ -560,7 +560,7 @@ async def checkout(callback: CallbackQuery, state: FSMContext):
 Итого к оплате: <b>{final_price}₽</b>
 
 🏦 <b>РЕКВИЗИТЫ ДЛЯ ОПЛАТЫ:</b>
-• OZON BANK / T BANK: 89932481825
+• T BANK: 89033889278
 • Получатель: Регина Линаровна Ф.
 
 🔴🔴🔴 <b>ВНИМАНИЕ! ОБЯЗАТЕЛЬНО ПРОВЕРЬТЕ!</b> 🔴🔴🔴
